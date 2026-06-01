@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FastAPI Health Check</title>
+
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+    <main class="container">
+        <section class="card">
+            <div class="badge">
+                <span class="dot"></span>
+                FastAPI online
+            </div>
+
+            <h1>Health Check</h1>
+
+            <p>
+                Clique no botão abaixo para executar um GET no endpoint
+                <strong>/health</strong>. O resultado aparece como se fosse
+                uma resposta de <strong>curl</strong> no terminal.
+            </p>
+
+            <div class="actions">
+                <button onclick="checkHealth()">Executar GET /health</button>
+
+                <a class="link-button" href="/pessoas">
+                Cadastrar pessoas
+                </a>
+
+                <div class="url">GET http://127.0.0.1:8000/health</div>
+            </div>
+
+            <div class="terminal">
+                <div class="terminal-header">
+                    <span class="circle red"></span>
+                    <span class="circle yellow"></span>
+                    <span class="circle green"></span>
+                    <span>terminal — curl /health</span>
+                </div>
+
+                <pre id="output"><span class="muted">$ curl http://127.0.0.1:8000/health</span></pre>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        async function checkHealth() {
+            const output = document.getElementById("output");
+
+            output.textContent = "$ curl http://127.0.0.1:8000/health\n\nExecutando...";
+
+            try {
+                const response = await fetch("/health");
+                const data = await response.json();
+
+                output.textContent =
+                    "$ curl http://127.0.0.1:8000/health\n\n" +
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                output.textContent =
+                    "$ curl http://127.0.0.1:8000/health\n\n" +
+                    "Erro ao chamar o endpoint:\n" +
+                    error;
+            }
+        }
+    </script>
+</body>
+</html>

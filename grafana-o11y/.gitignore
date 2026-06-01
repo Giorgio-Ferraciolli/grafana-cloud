@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Docker / local data
+*.log
+logs/
+docker-compose.override.yml
+
+# PostgreSQL local data
+postgres_data/
+*.db
+*.sqlite
+*.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# Cache
+.cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local certificates / keys
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Grafana / tokens / local configs
+grafana-token*
+*token*
+*secret*.env
+.env.*

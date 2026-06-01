@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cadastro de Pessoas</title>
+
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+    <main class="container">
+        <section class="card">
+            <div class="badge">
+                <span class="dot"></span>
+                PostgreSQL conectado
+            </div>
+
+            <h1>Cadastro de Pessoas</h1>
+
+            <p>
+                Cadastre uma pessoa no formulário abaixo. Os dados serão salvos
+                no banco PostgreSQL e essa rota também será monitorada pelo
+                OpenTelemetry.
+            </p>
+
+            <form class="form-card" method="post" action="/pessoas">
+                <div class="form-group">
+                    <label for="nome">Nome</label>
+                    <input
+                        id="nome"
+                        name="nome"
+                        type="text"
+                        placeholder="Ex: Giorgio"
+                        required
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="Ex: giorgio@email.com"
+                        required
+                    />
+                </div>
+
+                <button type="submit">Cadastrar pessoa</button>
+            </form>
+
+            <div class="actions top-space">
+                <a class="link-button secondary" href="/">
+                    Voltar para Health Check
+                </a>
+            </div>
+
+            <div class="terminal">
+                <div class="terminal-header">
+                    <span class="circle red"></span>
+                    <span class="circle yellow"></span>
+                    <span class="circle green"></span>
+                    <span>postgres — pessoas cadastradas</span>
+                </div>
+
+                <div class="table-wrapper">
+                    {% if pessoas %}
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nome</th>
+                                    <th>E-mail</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pessoa in pessoas %}
+                                    <tr>
+                                        <td>{{ pessoa.id }}</td>
+                                        <td>{{ pessoa.nome }}</td>
+                                        <td>{{ pessoa.email }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <pre>Nenhuma pessoa cadastrada ainda.</pre>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
