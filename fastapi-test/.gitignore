@@ -1,5 +1,11 @@
+# Python
 venv/
 __pycache__/
 *.pyc
-.env
+
+# Alloy
 config.alloy
+data-alloy/
+
+# Environment
+.env
