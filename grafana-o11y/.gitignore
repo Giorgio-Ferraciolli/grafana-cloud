@@ -69,3 +69,6 @@ grafana-token*
 *token*
 *secret*.env
 .env.*
+
+# Docker Compose
+docker-compose.yml

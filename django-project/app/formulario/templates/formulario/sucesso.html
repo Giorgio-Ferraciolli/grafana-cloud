@@ -1,0 +1,56 @@
+{% load static %}
+
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Formulário enviado</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #222;
+        }
+        .container {
+            max-width: 720px;
+            margin: 48px auto;
+            padding: 32px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+        .card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px;
+            margin-top: 16px;
+        }
+        a {
+            display: inline-block;
+            margin-top: 18px;
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <h1>Formulário enviado com sucesso ✅</h1>
+        <p>Esses foram os dados recebidos pelo Django:</p>
+
+        <div class="card">
+            <p><strong>Nome:</strong> {{ dados.nome }}</p>
+            <p><strong>E-mail:</strong> {{ dados.email }}</p>
+            <p><strong>Assunto:</strong> {{ dados.assunto }}</p>
+            <p><strong>Mensagem:</strong> {{ dados.mensagem }}</p>
+        </div>
+
+        <a href="/">Voltar para o formulário</a>
+    </main>
+</body>
+</html>

@@ -9,3 +9,6 @@ data-alloy/
 
 # Environment
 .env
+
+# Docker Compose
+docker-compose.yml

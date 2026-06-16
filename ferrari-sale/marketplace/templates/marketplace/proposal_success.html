@@ -1,0 +1,18 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Proposta enviada | Ferrari Sale</title>
+    <link rel="stylesheet" href="{% static 'marketplace/css/styles.css' %}">
+</head>
+<body class="success-page">
+    <main class="success-card">
+        <span class="success-icon">✓</span>
+        <h1>Proposta enviada!</h1>
+        <p>Sua proposta foi gravada no PostgreSQL. No mundo real, agora o vendedor receberia a lead para contato.</p>
+        <a class="btn btn-primary" href="{% url 'home' %}">Voltar para a vitrine</a>
+    </main>
+</body>
+</html>

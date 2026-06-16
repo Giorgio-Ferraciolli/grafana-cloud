@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Site Monitor</title>
+
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+        }
+
+        header {
+            background: #111827;
+            padding: 24px 40px;
+            border-bottom: 1px solid #334155;
+        }
+
+        header h1 {
+            color: #38bdf8;
+            margin: 0;
+        }
+
+        main {
+            padding: 32px 40px;
+        }
+
+        .register-box {
+            background: #1e293b;
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 32px;
+        }
+
+        .register-box h2 {
+            margin-top: 0;
+        }
+
+        input {
+            padding: 12px;
+            margin-right: 8px;
+            border-radius: 8px;
+            border: none;
+            min-width: 220px;
+        }
+
+        button {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            background: #38bdf8;
+            color: #0f172a;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .sites-section {
+            background: #111827;
+            padding: 24px;
+            border-radius: 12px;
+        }
+
+        .sites-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .sites-count {
+            color: #94a3b8;
+        }
+
+        .sites-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .site-card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+        }
+
+        .site-card h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        .url {
+            color: #93c5fd;
+            font-size: 14px;
+            word-break: break-all;
+        }
+
+        .status {
+            margin-top: 16px;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .online {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+        }
+
+        .offline {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+        }
+
+        .unknown {
+            background: rgba(148, 163, 184, 0.15);
+            color: #94a3b8;
+        }
+
+        .details {
+            margin-top: 12px;
+            font-size: 14px;
+            color: #cbd5e1;
+        }
+
+        .actions {
+            margin-top: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Site Monitor</h1>
+    </header>
+
+    <main>
+        <section class="register-box">
+            <h2>Cadastrar novo site</h2>
+
+            <form action="/frontend/sites" method="post">
+                <input type="text" name="name" placeholder="Nome do site" required>
+                <input type="url" name="url" placeholder="https://exemplo.com" required>
+                <button type="submit">Cadastrar</button>
+            </form>
+        </section>
+
+        <section class="sites-section">
+            <div class="sites-header">
+                <h2>Sites cadastrados</h2>
+                <span class="sites-count">{{ sites|length }} site(s)</span>
+            </div>
+
+            {% if sites %}
+                <div class="sites-grid">
+                    {% for site in sites %}
+                        <div class="site-card">
+                            <h3>{{ site.name }}</h3>
+                            <p class="url">{{ site.url }}</p>
+
+                            {% if site.last_check %}
+                                {% if site.last_check.online %}
+                                    <div class="status online">ONLINE</div>
+                                {% else %}
+                                    <div class="status offline">OFFLINE</div>
+                                {% endif %}
+
+                                <div class="details">
+                                    <p>Status code: {{ site.last_check.status_code }}</p>
+                                    <p>Tempo: {{ site.last_check.response_time_ms }} ms</p>
+
+                                    {% if site.last_check.error %}
+                                        <p>Erro: {{ site.last_check.error }}</p>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="status unknown">NÃO VERIFICADO</div>
+                            {% endif %}
+
+                            <div class="actions">
+                                <form action="/frontend/sites/{{ site.id }}/check" method="post">
+                                    <button type="submit">Testar site</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p>Nenhum site cadastrado ainda.</p>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>

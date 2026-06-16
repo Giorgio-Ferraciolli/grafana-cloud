@@ -1,0 +1,133 @@
+{% load static humanize %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ferrari Sale | Supercars Marketplace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'marketplace/css/styles.css' %}">
+</head>
+<body>
+    <header class="site-header">
+        <nav class="navbar container">
+            <a class="brand" href="{% url 'home' %}">
+                <span class="brand-mark">F</span>
+                <span>Ferrari<span>Sale</span></span>
+            </a>
+            <div class="nav-links">
+                <a href="#cars">Estoque</a>
+                <a href="#offer">Proposta</a>
+                <a href="/admin/">Admin</a>
+            </div>
+            <a class="nav-cta" href="#offer">Enviar proposta</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container hero-grid">
+                <div class="hero-copy">
+                    <p class="eyebrow">Marketplace de luxo • Projeto Django</p>
+                    <h1>Ferraris exclusivas com visual de loja premium.</h1>
+                    <p class="hero-text">Uma vitrine fictícia para estudos com Django, PostgreSQL e Docker. Os clientes escolhem um carro e enviam uma proposta direto para o banco.</p>
+                    <div class="hero-actions">
+                        <a class="btn btn-primary" href="#cars">Ver carros</a>
+                        <a class="btn btn-secondary" href="#offer">Fazer proposta</a>
+                    </div>
+                </div>
+                <div class="hero-card">
+                    <div class="hero-glow"></div>
+                    <img src="{% static 'marketplace/img/ferrari-488-pista.png' %}" alt="Ferrari vermelha em pista">
+                    <div class="hero-stat">
+                        <strong>4</strong>
+                        <span>Ferraris em estoque</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="container section-intro" id="cars">
+            <div>
+                <p class="eyebrow">Wishlist</p>
+                <h2>Você tem 4 super máquinas salvas</h2>
+            </div>
+            <p class="muted">Preços fictícios em dólar. Cards inspirados no exemplo enviado, com uma pegada mais premium.</p>
+        </section>
+
+        <section class="container car-grid">
+            {% for car in cars %}
+                <article class="car-card">
+                    <div class="car-media">
+                        {% if car.badge %}<span class="badge">{{ car.badge }}</span>{% endif %}
+                        <img src="{% static car.image %}" alt="{{ car.title }}">
+                    </div>
+                    <div class="car-body">
+                        <div class="car-title-row">
+                            <div>
+                                <h3>{{ car.title }}</h3>
+                                <p>{{ car.location }}</p>
+                            </div>
+                            <span class="favorite">♥</span>
+                        </div>
+
+                        <dl class="car-specs">
+                            <div><dt>Ano</dt><dd>{{ car.model_year }}</dd></div>
+                            <div><dt>Milhas</dt><dd>{{ car.mileage|intcomma }}</dd></div>
+                            <div><dt>Motor</dt><dd>{{ car.engine }}</dd></div>
+                            <div><dt>Câmbio</dt><dd>{{ car.transmission }}</dd></div>
+                            <div><dt>Cor</dt><dd>{{ car.color }}</dd></div>
+                            <div><dt>Status</dt><dd>Disponível</dd></div>
+                        </dl>
+
+                        <div class="price-row">
+                            <strong>US$ {{ car.price|floatformat:0|intcomma }}</strong>
+                            <a href="?car={{ car.id }}#offer">Propor</a>
+                        </div>
+                    </div>
+                </article>
+            {% empty %}
+                <p>Nenhum carro cadastrado. Rode as migrations para carregar o estoque inicial.</p>
+            {% endfor %}
+        </section>
+
+        <section class="container offer-shell" id="offer">
+            <div class="offer-copy">
+                <p class="eyebrow">Lead no PostgreSQL</p>
+                <h2>Receba propostas dos clientes</h2>
+                <p>O formulário abaixo grava uma proposta na tabela <code>marketplace_proposal</code>, relacionada ao carro escolhido.</p>
+                <div class="offer-note">
+                    <strong>Admin:</strong> crie um superusuário e acesse <code>/admin/</code> para ver carros e propostas.
+                </div>
+            </div>
+
+            <form class="proposal-form" method="post" novalidate>
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="form-errors">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                {% for field in form %}
+                    <label>
+                        <span>{{ field.label }}</span>
+                        {{ field }}
+                        {% if field.errors %}<small class="field-error">{{ field.errors|striptags }}</small>{% endif %}
+                    </label>
+                {% endfor %}
+
+                <button class="btn btn-primary btn-full" type="submit">Enviar proposta</button>
+                <p class="privacy">Projeto para estudos. Não use dados reais de clientes.</p>
+            </form>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container footer-grid">
+            <p>Ferrari Sale — Django + PostgreSQL + Docker</p>
+            <a href="#cars">Voltar ao estoque ↑</a>
+        </div>
+    </footer>
+</body>
+</html>

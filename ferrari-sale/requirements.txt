@@ -1,0 +1,10 @@
+Django>=5.0,<6.0
+psycopg[binary]>=3.1,<4.0
+
+django-prometheus>=2.3,<3.0
+
+opentelemetry-distro[otlp]
+opentelemetry-instrumentation-django
+opentelemetry-instrumentation-psycopg
+opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-logging

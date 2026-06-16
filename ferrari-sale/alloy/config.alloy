@@ -1,0 +1,125 @@
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = sys.env("PROMETHEUS_REMOTE_WRITE_URL")
+
+    basic_auth {
+      username = sys.env("PROMETHEUS_USERNAME")
+      password = sys.env("PROMETHEUS_PASSWORD")
+    }
+
+    tls_config {
+      insecure_skip_verify = true
+    }
+  }
+}
+
+prometheus.scrape "django" {
+  targets = [
+    {
+      "__address__" = "web:8000",
+      "job"         = "ferrari-sale-django",
+      "project"     = "ferrari-sale",
+    },
+  ]
+
+  metrics_path = "/metrics"
+  forward_to   = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.scrape "alloy" {
+  targets = [
+    {
+      "__address__" = "127.0.0.1:12345",
+      "job"         = "alloy",
+      "project"     = "ferrari-sale",
+    },
+  ]
+
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "docker_logs" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    target_label = "project"
+    replacement  = "ferrari-sale"
+  }
+}
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = sys.env("LOKI_URL")
+
+    basic_auth {
+      username = sys.env("LOKI_USERNAME")
+      password = sys.env("LOKI_PASSWORD")
+    }
+
+    tls_config {
+      insecure_skip_verify = true
+    }
+  }
+}
+
+loki.source.docker "default" {
+  host    = "unix:///var/run/docker.sock"
+  targets = discovery.relabel.docker_logs.output
+
+  labels = {
+    "job" = "docker",
+  }
+
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+otelcol.receiver.otlp "django" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    traces = [otelcol.processor.batch.traces.input]
+  }
+}
+
+otelcol.processor.batch "traces" {
+  output {
+    traces = [otelcol.exporter.otlphttp.grafana_cloud_traces.input]
+  }
+}
+
+otelcol.auth.basic "grafana_cloud_traces" {
+  username = sys.env("TEMPO_USERNAME")
+  password = sys.env("TEMPO_PASSWORD")
+}
+
+otelcol.exporter.otlphttp "grafana_cloud_traces" {
+  client {
+    endpoint = sys.env("TEMPO_OTLP_ENDPOINT")
+    auth     = otelcol.auth.basic.grafana_cloud_traces.handler
+
+    tls {
+      insecure_skip_verify = true
+    }
+  }
+}
