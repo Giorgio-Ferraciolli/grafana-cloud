@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>java-crud-grafana</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --page: #f7f8fb;
+            --panel: #ffffff;
+            --panel-border: #d7dde8;
+            --text: #17202a;
+            --muted: #5b6575;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --code: #354052;
+            --terminal: #111827;
+            --terminal-text: #d1fae5;
+            --field: #ffffff;
+            --shadow: rgba(21, 29, 43, 0.08);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: var(--page);
+            color: var(--text);
+        }
+
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --page: #101318;
+            --panel: #171c24;
+            --panel-border: #313a49;
+            --text: #f4f7fb;
+            --muted: #aab4c3;
+            --primary: #4f8cff;
+            --primary-hover: #73a4ff;
+            --code: #d6deea;
+            --terminal: #05070b;
+            --terminal-text: #99f6e4;
+            --field: #10151f;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: var(--page);
+            color: var(--text);
+        }
+
+        main {
+            width: min(100%, 680px);
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            box-shadow: 0 16px 48px var(--shadow);
+            padding: 28px;
+        }
+
+        .header {
+            display: flex;
+            gap: 16px;
+            align-items: start;
+            justify-content: space-between;
+            margin-bottom: 22px;
+        }
+
+        .brand {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            min-width: 0;
+        }
+
+        .java-logo {
+            flex: 0 0 auto;
+            width: 56px;
+            height: 56px;
+            object-fit: contain;
+        }
+
+        .brand-copy {
+            min-width: 0;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+            line-height: 1.2;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .theme-options {
+            display: inline-grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            margin: 0;
+            min-width: 164px;
+            padding: 4px;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            background: var(--page);
+        }
+
+        .theme-options label {
+            display: block;
+        }
+
+        .theme-options input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .theme-options span {
+            display: grid;
+            min-height: 34px;
+            place-items: center;
+            border-radius: 6px;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            padding: 0 12px;
+        }
+
+        .theme-options input:checked + span {
+            background: var(--panel);
+            color: var(--text);
+            box-shadow: 0 1px 4px var(--shadow);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .section {
+            border-top: 1px solid var(--panel-border);
+            padding-top: 22px;
+        }
+
+        .section + .section {
+            margin-top: 24px;
+        }
+
+        .section:first-of-type {
+            border-top: 0;
+            padding-top: 0;
+        }
+
+        .section h2 {
+            margin: 0 0 14px;
+            font-size: 18px;
+            line-height: 1.3;
+        }
+
+        .post-form {
+            display: grid;
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: grid;
+            gap: 6px;
+            color: var(--muted);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            background: var(--field);
+            color: var(--text);
+            font: inherit;
+            padding: 12px;
+        }
+
+        textarea {
+            min-height: 96px;
+            resize: vertical;
+        }
+
+        button {
+            min-height: 44px;
+            border: 0;
+            border-radius: 6px;
+            background: var(--primary);
+            color: #ffffff;
+            cursor: pointer;
+            font-weight: 700;
+            padding: 0 18px;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+        }
+
+        button:disabled {
+            cursor: wait;
+            opacity: 0.68;
+        }
+
+        code {
+            overflow-wrap: anywhere;
+            color: var(--code);
+        }
+
+        pre {
+            min-height: 136px;
+            margin: 0;
+            border-radius: 8px;
+            background: var(--terminal);
+            color: var(--terminal-text);
+            overflow: auto;
+            padding: 18px;
+            white-space: pre-wrap;
+        }
+
+        .status {
+            min-height: 24px;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        @media (max-width: 560px) {
+            body {
+                padding: 16px;
+            }
+
+            .panel {
+                padding: 20px;
+            }
+
+            .header {
+                display: grid;
+            }
+
+            .brand {
+                align-items: start;
+            }
+
+            .java-logo {
+                width: 48px;
+                height: 48px;
+            }
+
+            .theme-options {
+                width: 100%;
+            }
+
+            .actions button,
+            .post-form button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <section class="panel">
+            <div class="header">
+                <div class="brand">
+                    <img class="java-logo" src="/assets/java-logo.svg" alt="Logo Java">
+                    <div class="brand-copy">
+                        <h1>java-crud-grafana</h1>
+                        <p>Teste o endpoint <code>GET /health</code> direto pelo navegador.</p>
+                    </div>
+                </div>
+
+                <fieldset class="theme-options" aria-label="Tema">
+                    <label>
+                        <input type="radio" name="theme" value="light" checked>
+                        <span>Claro</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="theme" value="dark">
+                        <span>Escuro</span>
+                    </label>
+                </fieldset>
+            </div>
+
+            <section class="section">
+                <div class="actions">
+                    <button id="healthButton" type="button">Testar /health</button>
+                    <code>curl http://localhost:8080/health</code>
+                </div>
+
+                <div id="status" class="status">Aguardando teste.</div>
+                <pre id="result">{}</pre>
+            </section>
+
+            <section class="section">
+                <h2>Criar item</h2>
+                <form id="postForm" class="post-form">
+                    <label>
+                        Titulo
+                        <input id="itemTitle" name="title" type="text" placeholder="Ex: Primeiro registro" required>
+                    </label>
+
+                    <label>
+                        Descricao
+                        <textarea id="itemDescription" name="description" placeholder="Escreva qualquer detalhe para salvar no JSON"></textarea>
+                    </label>
+
+                    <div class="actions">
+                        <button id="postButton" type="submit">Enviar POST</button>
+                        <code>POST http://localhost:8080/items</code>
+                    </div>
+                </form>
+
+                <div id="postStatus" class="status">Nenhum POST enviado ainda.</div>
+                <pre id="postResult">[]</pre>
+            </section>
+        </section>
+    </main>
+
+    <script>
+        const button = document.querySelector("#healthButton");
+        const statusEl = document.querySelector("#status");
+        const result = document.querySelector("#result");
+        const postForm = document.querySelector("#postForm");
+        const postButton = document.querySelector("#postButton");
+        const postStatus = document.querySelector("#postStatus");
+        const postResult = document.querySelector("#postResult");
+        const itemTitle = document.querySelector("#itemTitle");
+        const itemDescription = document.querySelector("#itemDescription");
+        const themeOptions = document.querySelectorAll('input[name="theme"]');
+        const savedTheme = localStorage.getItem("theme") || "light";
+
+        function applyTheme(theme) {
+            document.documentElement.dataset.theme = theme;
+            localStorage.setItem("theme", theme);
+
+            themeOptions.forEach((option) => {
+                option.checked = option.value === theme;
+            });
+        }
+
+        applyTheme(savedTheme);
+
+        themeOptions.forEach((option) => {
+            option.addEventListener("change", () => applyTheme(option.value));
+        });
+
+        async function responseBody(response) {
+            const text = await response.text();
+
+            try {
+                return JSON.parse(text);
+            } catch {
+                return text;
+            }
+        }
+
+        async function loadItems() {
+            const response = await fetch("/items");
+            const body = await responseBody(response);
+            postResult.textContent = JSON.stringify(body, null, 2);
+        }
+
+        button.addEventListener("click", async () => {
+            button.disabled = true;
+            statusEl.textContent = "Enviando request...";
+            result.textContent = "";
+
+            const startedAt = performance.now();
+
+            try {
+                const response = await fetch("/health");
+                const elapsed = Math.round(performance.now() - startedAt);
+                const body = await response.json();
+
+                statusEl.textContent = `HTTP ${response.status} em ${elapsed}ms`;
+                result.textContent = JSON.stringify(body, null, 2);
+            } catch (error) {
+                statusEl.textContent = "Falha ao chamar /health";
+                result.textContent = error.message;
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        postForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const payload = {
+                title: itemTitle.value.trim(),
+                description: itemDescription.value.trim()
+            };
+
+            if (!payload.title) {
+                postStatus.textContent = "Informe um titulo para enviar.";
+                return;
+            }
+
+            postButton.disabled = true;
+            postStatus.textContent = "Enviando POST...";
+
+            try {
+                const response = await fetch("/items", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const body = await responseBody(response);
+
+                postStatus.textContent = `HTTP ${response.status} ao salvar item`;
+
+                if (response.ok) {
+                    postForm.reset();
+                    await loadItems();
+                } else {
+                    postResult.textContent = JSON.stringify(body, null, 2);
+                }
+            } catch (error) {
+                postStatus.textContent = "Falha ao enviar POST";
+                postResult.textContent = error.message;
+            } finally {
+                postButton.disabled = false;
+            }
+        });
+
+        loadItems().catch((error) => {
+            postStatus.textContent = "Nao foi possivel carregar os itens.";
+            postResult.textContent = error.message;
+        });
+    </script>
+</body>
+</html>
