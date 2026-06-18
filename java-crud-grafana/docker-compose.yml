@@ -1,0 +1,40 @@
+services:
+  alloy:
+    image: grafana/alloy:latest
+    container_name: java-crud-grafana-alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+    ports:
+      - "12346:12345"
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    env_file:
+      - .env
+
+  app:
+    build: .
+    container_name: java-app-frontend
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      JAVA_TOOL_OPTIONS: -javaagent:/app/opentelemetry-javaagent.jar
+      OTEL_SERVICE_NAME: java-crud-grafana
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=java-crud-grafana,deployment.environment=local
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+    depends_on:
+      - alloy
+
+volumes:
+  alloy_data:

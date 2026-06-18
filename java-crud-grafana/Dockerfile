@@ -12,6 +12,8 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
+ADD https://repo1.maven.org/maven2/io/opentelemetry/javaagent/opentelemetry-javaagent/2.16.0/opentelemetry-javaagent-2.16.0.jar /app/opentelemetry-javaagent.jar
+RUN chmod 644 /app/opentelemetry-javaagent.jar
 COPY --from=build /app/out ./out
 
 ENV PORT=8080

@@ -1,20 +1,31 @@
 # java-crud-grafana
 
-API Java simples com endpoint de health check e formulario para criar itens via POST.
+API Java simples com endpoint de health check, formulario para criar itens via POST e observabilidade com Grafana Cloud.
 
 O frontend fica em `src/main/resources/static/index.html`, e a API serve esse arquivo em `/`.
 
-## Rodar com Docker
+## Rodar com Docker Compose e Grafana Cloud
+
+Crie o arquivo `.env` com suas credenciais Grafana Cloud. Este projeto usa as mesmas variaveis do projeto `ferrari-sale`.
 
 ```bash
-docker build -t java-crud-grafana .
-docker run --rm -p 8080:8080 --user "$(id -u):$(id -g)" -v "$(pwd)/data:/app/data" java-crud-grafana
+cp .env.example .env
+docker compose up --build -d
+docker compose ps
 ```
+
+O Alloy envia metricas Prometheus de `/metrics`, logs dos containers para Loki e traces OpenTelemetry para Tempo.
 
 Depois, abra no navegador:
 
 ```text
 http://localhost:8080
+```
+
+O Alloy fica disponivel localmente em:
+
+```text
+http://localhost:12346
 ```
 
 ## Testar
@@ -27,6 +38,12 @@ Resposta esperada:
 
 ```json
 {"status":"ok","service":"java-crud-grafana"}
+```
+
+## Testar metricas
+
+```bash
+curl http://localhost:8080/metrics
 ```
 
 ## Criar item via POST

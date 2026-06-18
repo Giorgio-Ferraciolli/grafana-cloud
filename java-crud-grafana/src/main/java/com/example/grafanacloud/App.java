@@ -10,7 +10,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,6 +23,7 @@ public final class App {
     private static final String STATIC_RESOURCE_ROOT = "static";
     private static final String DEFAULT_DATA_FILE = "data/items.json";
     private static final Object DATA_LOCK = new Object();
+    private static final Map<String, AtomicLong> REQUESTS = new ConcurrentHashMap<>();
 
     private App() {
     }
@@ -29,6 +33,7 @@ public final class App {
         HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
 
         server.createContext("/health", App::handleHealth);
+        server.createContext("/metrics", App::handleMetrics);
         server.createContext("/items", App::handleItems);
         server.createContext("/assets/", App::handleStaticAsset);
         server.createContext("/", App::handleIndex);
@@ -45,6 +50,15 @@ public final class App {
         }
 
         sendJson(exchange, 200, "{\"status\":\"ok\",\"service\":\"java-crud-grafana\"}");
+    }
+
+    private static void handleMetrics(HttpExchange exchange) throws IOException {
+        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            sendJson(exchange, 405, "{\"error\":\"method_not_allowed\"}");
+            return;
+        }
+
+        sendText(exchange, 200, prometheusMetrics(), "text/plain; version=0.0.4; charset=utf-8");
     }
 
     private static void handleItems(HttpExchange exchange) throws IOException {
@@ -258,10 +272,72 @@ public final class App {
         return "application/octet-stream";
     }
 
+    private static String prometheusMetrics() throws IOException {
+        StringBuilder metrics = new StringBuilder();
+        metrics.append("# HELP java_crud_grafana_http_requests_total Total HTTP responses by method, path and status.\n");
+        metrics.append("# TYPE java_crud_grafana_http_requests_total counter\n");
+
+        REQUESTS.forEach((key, count) -> {
+            String[] parts = key.split("\\|", 3);
+            metrics.append("java_crud_grafana_http_requests_total{method=\"")
+                    .append(escapePrometheusLabel(parts[0]))
+                    .append("\",path=\"")
+                    .append(escapePrometheusLabel(parts[1]))
+                    .append("\",status=\"")
+                    .append(escapePrometheusLabel(parts[2]))
+                    .append("\"} ")
+                    .append(count.get())
+                    .append('\n');
+        });
+
+        metrics.append("# HELP java_crud_grafana_items_total Total items persisted in the JSON file.\n");
+        metrics.append("# TYPE java_crud_grafana_items_total gauge\n");
+        metrics.append("java_crud_grafana_items_total ").append(countItems()).append('\n');
+
+        return metrics.toString();
+    }
+
+    private static long countItems() throws IOException {
+        String items = readItems();
+        Matcher matcher = Pattern.compile("\"id\"\\s*:").matcher(items);
+        long count = 0;
+
+        while (matcher.find()) {
+            count++;
+        }
+
+        return count;
+    }
+
+    private static void recordRequest(HttpExchange exchange, int statusCode) {
+        String key = exchange.getRequestMethod() + "|"
+                + normalizeMetricsPath(exchange.getRequestURI().getPath()) + "|"
+                + statusCode;
+
+        REQUESTS.computeIfAbsent(key, ignored -> new AtomicLong()).incrementAndGet();
+    }
+
+    private static String normalizeMetricsPath(String path) {
+        if (path.startsWith("/assets/")) {
+            return "/assets/*";
+        }
+
+        if (path.endsWith("/") && path.length() > 1) {
+            return path.substring(0, path.length() - 1);
+        }
+
+        return path;
+    }
+
+    private static String escapePrometheusLabel(String value) {
+        return value.replace("\\", "\\\\").replace("\n", "\\n").replace("\"", "\\\"");
+    }
+
     private static void sendHtml(HttpExchange exchange, int statusCode, String body) throws IOException {
         byte[] response = body.getBytes(StandardCharsets.UTF_8);
 
         exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
+        recordRequest(exchange, statusCode);
         exchange.sendResponseHeaders(statusCode, response.length);
 
         try (OutputStream output = exchange.getResponseBody()) {
@@ -272,6 +348,7 @@ public final class App {
     private static void sendBytes(HttpExchange exchange, int statusCode, String contentType, byte[] response)
             throws IOException {
         exchange.getResponseHeaders().set("Content-Type", contentType);
+        recordRequest(exchange, statusCode);
         exchange.sendResponseHeaders(statusCode, response.length);
 
         try (OutputStream output = exchange.getResponseBody()) {
@@ -283,6 +360,20 @@ public final class App {
         byte[] response = body.getBytes(StandardCharsets.UTF_8);
 
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        recordRequest(exchange, statusCode);
+        exchange.sendResponseHeaders(statusCode, response.length);
+
+        try (OutputStream output = exchange.getResponseBody()) {
+            output.write(response);
+        }
+    }
+
+    private static void sendText(HttpExchange exchange, int statusCode, String body, String contentType)
+            throws IOException {
+        byte[] response = body.getBytes(StandardCharsets.UTF_8);
+
+        exchange.getResponseHeaders().set("Content-Type", contentType);
+        recordRequest(exchange, statusCode);
         exchange.sendResponseHeaders(statusCode, response.length);
 
         try (OutputStream output = exchange.getResponseBody()) {
