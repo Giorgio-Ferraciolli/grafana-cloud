@@ -1,0 +1,59 @@
+{
+  "name": "planner-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Planejador de Rotina - API backend (Express + Prisma + OpenTelemetry)",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node -r dotenv/config dist/server.js",
+    "prisma:generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "seed": "tsx prisma/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.0",
+    "@grafana/agento11y": "^0.12.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.55.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "0.55.0",
+    "@opentelemetry/exporter-metrics-otlp-proto": "0.55.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.55.0",
+    "@opentelemetry/exporter-trace-otlp-proto": "0.55.0",
+    "@opentelemetry/resources": "1.28.0",
+    "@opentelemetry/sdk-metrics": "1.28.0",
+    "@opentelemetry/sdk-node": "0.55.0",
+    "@opentelemetry/sdk-trace-node": "1.28.0",
+    "@opentelemetry/semantic-conventions": "^1.28.0",
+    "@prisma/client": "^5.22.0",
+    "@prisma/instrumentation": "^5.22.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pino": "^9.5.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.2",
+    "@types/supertest": "^6.0.2",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.7",
+    "prisma": "^5.22.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

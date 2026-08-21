@@ -1,0 +1,220 @@
+// Prisma schema for Planejador de Rotina
+// previewFeatures "tracing" enables the official @prisma/instrumentation
+// package to emit OpenTelemetry spans for every query the engine runs.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["tracing"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Goal {
+  LOSE_WEIGHT
+  GAIN_MUSCLE
+  MAINTAIN
+  IMPROVE_CONDITIONING
+}
+
+enum ExperienceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum TrainingPreference {
+  STRENGTH
+  CARDIO
+  HIIT
+  FUNCTIONAL
+  MIXED
+}
+
+enum NutritionGoal {
+  LOSE_WEIGHT
+  GAIN_MUSCLE
+  MAINTAIN
+  HEALTHY_EATING
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum MealType {
+  BREAKFAST
+  MORNING_SNACK
+  LUNCH
+  AFTERNOON_SNACK
+  DINNER
+  SUPPER
+}
+
+enum MuscleGroup {
+  CHEST
+  BACK
+  SHOULDERS
+  BICEPS
+  TRICEPS
+  LEGS
+  GLUTES
+  CORE
+  CARDIO
+  FULL_BODY
+}
+
+enum PlanStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model User {
+  id            String            @id @default(uuid())
+  name          String
+  email         String            @unique
+  age           Int
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  preferences   UserPreferences?
+  workoutPlans  WorkoutPlan[]
+  dietPlans     DietPlan[]
+
+  @@map("users")
+}
+
+model UserPreferences {
+  id                   String              @id @default(uuid())
+  userId               String              @unique
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal                 Goal
+  experienceLevel      ExperienceLevel
+  daysPerWeek          Int
+  minutesPerSession    Int
+  trainingPreference   TrainingPreference
+  dietaryRestrictions  Json                @default("[]")
+  nutritionGoal        NutritionGoal
+  likedFoods           Json                @default("[]")
+  dislikedFoods        Json                @default("[]")
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@map("user_preferences")
+}
+
+model Exercise {
+  id             String            @id @default(uuid())
+  name           String            @unique
+  muscleGroup    MuscleGroup
+  equipment      String
+  difficulty     ExperienceLevel
+  description    String?           @db.Text
+  workoutLinks   WorkoutExercise[]
+  createdAt      DateTime          @default(now())
+
+  @@map("exercises")
+}
+
+model WorkoutPlan {
+  id          String     @id @default(uuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      PlanStatus @default(ACTIVE)
+  generatedAt DateTime   @default(now())
+  workouts    Workout[]
+
+  @@map("workout_plans")
+  @@index([userId])
+}
+
+model Workout {
+  id            String            @id @default(uuid())
+  workoutPlanId String
+  workoutPlan   WorkoutPlan       @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  dayOfWeek     DayOfWeek
+  focus         String
+  isRestDay     Boolean           @default(false)
+  exercises     WorkoutExercise[]
+
+  @@map("workouts")
+  @@index([workoutPlanId])
+}
+
+model WorkoutExercise {
+  id            String   @id @default(uuid())
+  workoutId     String
+  workout       Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exerciseId    String
+  exercise      Exercise @relation(fields: [exerciseId], references: [id])
+  order         Int
+  sets          Int
+  reps          String
+  restSeconds   Int
+  notes         String?
+
+  @@map("workout_exercises")
+  @@index([workoutId])
+  @@index([exerciseId])
+}
+
+model Food {
+  id               String   @id @default(uuid())
+  name             String   @unique
+  category         String
+  caloriesPer100g  Float
+  proteinPer100g   Float
+  carbsPer100g     Float
+  fatPer100g       Float
+  tags             Json     @default("[]")
+  mealLinks        MealFood[]
+  createdAt        DateTime @default(now())
+
+  @@map("foods")
+}
+
+model DietPlan {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  generatedAt DateTime @default(now())
+  meals       Meal[]
+
+  @@map("diet_plans")
+  @@index([userId])
+}
+
+model Meal {
+  id          String     @id @default(uuid())
+  dietPlanId  String
+  dietPlan    DietPlan   @relation(fields: [dietPlanId], references: [id], onDelete: Cascade)
+  type        MealType
+  calories    Float      @default(0)
+  protein     Float      @default(0)
+  carbs       Float      @default(0)
+  fat         Float      @default(0)
+  foods       MealFood[]
+
+  @@map("meals")
+  @@index([dietPlanId])
+}
+
+model MealFood {
+  id            String @id @default(uuid())
+  mealId        String
+  meal          Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  foodId        String
+  food          Food   @relation(fields: [foodId], references: [id])
+  quantityGrams Float
+
+  @@map("meal_foods")
+  @@index([mealId])
+  @@index([foodId])
+}

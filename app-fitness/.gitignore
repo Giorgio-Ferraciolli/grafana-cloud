@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Env files
+.env
+.env.local
+*.env.local
+
+# Coverage / test artifacts
+coverage/
+
+# Prisma
+backend/prisma/dev.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Docker
+docker-compose.override.yml

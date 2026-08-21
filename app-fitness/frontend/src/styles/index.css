@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    background-image: radial-gradient(circle at 15% 0%, rgba(99, 102, 241, 0.12), transparent 40%),
+      radial-gradient(circle at 85% 20%, rgba(99, 102, 241, 0.08), transparent 35%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-brand-500/40 text-white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-border rounded-full;
+  }
+}
+
+@layer components {
+  .skeleton {
+    @apply relative overflow-hidden bg-surface-card rounded-lg;
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.02) 0px,
+      rgba(255, 255, 255, 0.06) 40px,
+      rgba(255, 255, 255, 0.02) 80px
+    );
+    background-size: 800px 100%;
+    @apply animate-shimmer;
+  }
+}
