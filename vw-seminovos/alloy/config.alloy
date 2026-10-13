@@ -1,0 +1,374 @@
+// =====================================================================
+// Grafana Alloy - VW Seminovos
+//
+//   MÉTRICAS  backend (/metrics) + MySQL + containers (cAdvisor) + Alloy
+//             -> prometheus.remote_write -> Grafana Cloud Prometheus
+//   LOGS      stdout de todos os containers do projeto + navegador (Faro)
+//             -> loki.write -> Grafana Cloud Loki
+//   TRACES    backend (OTLP) + navegador (Faro)
+//             -> otelcol -> Grafana Cloud Tempo
+//
+// Credenciais vêm do .env (sys.env). UI de depuração: http://localhost:12345
+// =====================================================================
+
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+// ---------------------------------------------------------------------
+// Destinos no Grafana Cloud
+// ---------------------------------------------------------------------
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_PROMETHEUS_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_PROMETHEUS_USER")
+      password = sys.env("GRAFANA_PROMETHEUS_TOKEN")
+    }
+  }
+
+  external_labels = {
+    project     = "vw-seminovos",
+    environment = coalesce(sys.env("DEPLOY_ENV"), "lab"),
+  }
+}
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_LOKI_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_LOKI_USER")
+      password = sys.env("GRAFANA_LOKI_TOKEN")
+    }
+  }
+
+  external_labels = {
+    project     = "vw-seminovos",
+    environment = coalesce(sys.env("DEPLOY_ENV"), "lab"),
+  }
+}
+
+otelcol.auth.basic "tempo" {
+  username = sys.env("GRAFANA_TEMPO_USER")
+  password = sys.env("GRAFANA_TEMPO_TOKEN")
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = sys.env("GRAFANA_TEMPO_OTLP_ENDPOINT")
+    auth     = otelcol.auth.basic.tempo.handler
+  }
+}
+
+// ---------------------------------------------------------------------
+// TRACES: OTLP do backend (gRPC 4317 / HTTP 4318)
+// ---------------------------------------------------------------------
+
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+    logs    = [otelcol.processor.batch.default.input]
+    traces  = [otelcol.processor.batch.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
+  output {
+    metrics = [otelcol.exporter.prometheus.default.input]
+    logs    = [otelcol.exporter.loki.default.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+// Métricas e logs que chegarem via OTLP seguem para Prometheus e Loki
+otelcol.exporter.prometheus "default" {
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+// ---------------------------------------------------------------------
+// FRONTEND: Grafana Faro (erros, logs, Web Vitals e traces do navegador)
+// O nginx encaminha /collect para cá, então o navegador não fala direto com o Alloy.
+// ---------------------------------------------------------------------
+
+faro.receiver "frontend" {
+  server {
+    listen_address       = "0.0.0.0"
+    listen_port          = 12347
+    cors_allowed_origins = ["*"]
+  }
+
+  output {
+    logs   = [loki.process.faro.receiver]
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+loki.process "faro" {
+  stage.logfmt {
+    mapping = { kind = "" }
+  }
+
+  stage.labels {
+    values = { kind = "" }
+  }
+
+  stage.static_labels {
+    values = {
+      service_name = "vw-web",
+      source       = "faro",
+    }
+  }
+
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+// ---------------------------------------------------------------------
+// LOGS: stdout/stderr dos containers do projeto (via socket do Docker)
+// ---------------------------------------------------------------------
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+
+  filter {
+    name   = "label"
+    values = ["com.docker.compose.project=vw-seminovos"]
+  }
+}
+
+discovery.relabel "containers" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // service_name = "vw-<serviço do compose>", igual ao service.name do OpenTelemetry
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "(.+)"
+    replacement   = "vw-$1"
+    target_label  = "service_name"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  labels        = { source = "docker" }
+  forward_to    = [loki.process.containers.receiver]
+}
+
+loki.process "containers" {
+  // Backend: JSON estruturado com trace_id (liga log <-> trace no Grafana)
+  stage.match {
+    selector = "{service_name=\"vw-backend\"}"
+
+    stage.json {
+      expressions = {
+        level    = "level",
+        trace_id = "trace_id",
+        span_id  = "span_id",
+      }
+    }
+
+    stage.labels {
+      values = { level = "" }
+    }
+
+    stage.structured_metadata {
+      values = {
+        trace_id = "",
+        span_id  = "",
+      }
+    }
+  }
+
+  // Nginx: log de acesso em JSON; nível derivado do status HTTP
+  stage.match {
+    selector = "{service_name=\"vw-frontend\"}"
+
+    stage.json {
+      expressions = {
+        status      = "status",
+        traceparent = "traceparent",
+      }
+    }
+
+    stage.regex {
+      source     = "status"
+      expression = "^(?P<status_class>[1-5])\\d\\d$"
+    }
+
+    stage.template {
+      source   = "level"
+      template = "{{ if eq .status_class \"5\" }}error{{ else if eq .status_class \"4\" }}warning{{ else }}info{{ end }}"
+    }
+
+    stage.labels {
+      values = { level = "" }
+    }
+  }
+
+  // MySQL: extrai o nível de linhas como "[Warning] [MY-010068] ..."
+  stage.match {
+    selector = "{service_name=\"vw-db\"}"
+
+    stage.regex {
+      expression = "\\[(?P<level>System|Note|Warning|ERROR)\\]"
+    }
+
+    stage.template {
+      source   = "level"
+      template = "{{ if .level }}{{ ToLower .level }}{{ else }}info{{ end }}"
+    }
+
+    stage.labels {
+      values = { level = "" }
+    }
+  }
+
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+// ---------------------------------------------------------------------
+// MÉTRICAS: aplicação
+// ---------------------------------------------------------------------
+
+prometheus.scrape "backend" {
+  targets = [{
+    "__address__"  = "backend:8000",
+    "service_name" = "vw-backend",
+    "instance"     = "vw-backend",
+  }]
+  job_name        = "vw-backend"
+  metrics_path    = "/metrics"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---------------------------------------------------------------------
+// MÉTRICAS: MySQL (exporter embutido no Alloy)
+// ---------------------------------------------------------------------
+
+prometheus.exporter.mysql "db" {
+  data_source_name = sys.env("MYSQL_EXPORTER_DSN")
+}
+
+discovery.relabel "mysql" {
+  targets = prometheus.exporter.mysql.db.targets
+
+  rule {
+    target_label = "instance"
+    replacement  = "vw-db"
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "integrations/mysql"
+  }
+}
+
+prometheus.scrape "mysql" {
+  targets         = discovery.relabel.mysql.output
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---------------------------------------------------------------------
+// MÉTRICAS: containers (cAdvisor embutido no Alloy)
+// Só os containers deste projeto e só as séries usadas nos painéis,
+// para não estourar o limite de séries ativas do plano gratuito.
+// ---------------------------------------------------------------------
+
+prometheus.exporter.cadvisor "docker" {
+  docker_host                  = "unix:///var/run/docker.sock"
+  docker_only                  = true
+  storage_duration             = "5m"
+  store_container_labels       = false
+  allowlisted_container_labels = ["com.docker.compose.project", "com.docker.compose.service"]
+}
+
+discovery.relabel "cadvisor" {
+  targets = prometheus.exporter.cadvisor.docker.targets
+
+  rule {
+    target_label = "instance"
+    replacement  = "docker-host"
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "integrations/docker"
+  }
+}
+
+prometheus.scrape "cadvisor" {
+  targets         = discovery.relabel.cadvisor.output
+  scrape_interval = "30s"
+  forward_to      = [prometheus.relabel.cadvisor.receiver]
+}
+
+prometheus.relabel "cadvisor" {
+  rule {
+    source_labels = ["container_label_com_docker_compose_project"]
+    regex         = "vw-seminovos"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__name__"]
+    regex         = "container_(cpu_usage_seconds_total|memory_working_set_bytes|memory_usage_bytes|network_(receive|transmit)_bytes_total|fs_(reads|writes)_bytes_total|last_seen|start_time_seconds)"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["container_label_com_docker_compose_service"]
+    regex         = "(.+)"
+    target_label  = "service_name"
+    replacement   = "vw-$1"
+  }
+
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---------------------------------------------------------------------
+// MÉTRICAS: saúde do próprio Alloy (só o essencial)
+// ---------------------------------------------------------------------
+
+prometheus.exporter.self "alloy" { }
+
+prometheus.scrape "alloy" {
+  targets         = prometheus.exporter.self.alloy.targets
+  job_name        = "integrations/alloy"
+  scrape_interval = "60s"
+  forward_to      = [prometheus.relabel.alloy.receiver]
+}
+
+prometheus.relabel "alloy" {
+  rule {
+    source_labels = ["__name__"]
+    regex         = "alloy_build_info|alloy_component_controller_running_components|prometheus_remote_storage_(samples|bytes)_total|prometheus_remote_storage_samples_failed_total|loki_write_(sent|dropped)_entries_total|otelcol_exporter_(sent|send_failed)_spans.*|otelcol_receiver_(accepted|refused)_spans.*|process_(cpu_seconds_total|resident_memory_bytes)"
+    action        = "keep"
+  }
+
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VW Seminovos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="#/"><span class="logo">VW</span> Seminovos</a>
+    <button class="menu-btn" id="menu-btn" aria-label="Abrir menu" aria-controls="menu">☰</button>
+    <nav id="menu">
+      <a href="#/" data-route="">Estoque</a>
+      <a href="#/comparar" data-route="comparar">Comparar</a>
+      <a href="#/simulador" data-route="simulador">Simulador</a>
+      <a href="#/vender" data-route="vender">Vender meu carro</a>
+      <a href="#/favoritos" data-route="favoritos">Favoritos <span class="badge" id="fav-count" hidden>0</span></a>
+      <a href="#/painel" data-route="painel" class="nav-admin">Painel</a>
+    </nav>
+  </header>
+
+  <div id="home">
+    <section class="hero">
+      <p class="eyebrow">Seminovos certificados</p>
+      <h1>Seu próximo Volkswagen<br>já está <em>pronto para rodar</em>.</h1>
+      <p class="sub">Modelos selecionados, revisados e com procedência garantida. Simule, compare e agende seu test drive online.</p>
+      <div class="hero-cta">
+        <button class="btn" id="go-stock">Ver estoque</button>
+        <a class="btn ghost" href="#/vender">Avaliar meu usado</a>
+      </div>
+      <div class="hero-stats" id="hero-stats"></div>
+    </section>
+
+    <main id="estoque" class="wrap">
+      <div class="toolbar">
+        <h2>Estoque disponível</h2>
+        <div class="filters" id="filters"></div>
+      </div>
+      <div class="tools">
+        <input id="search" type="search" placeholder="Buscar modelo, versão ou cor…" aria-label="Buscar">
+        <select id="f-fuel" aria-label="Combustível"></select>
+        <select id="f-price" aria-label="Preço máximo">
+          <option value="">Qualquer preço</option>
+          <option value="100000">Até R$ 100 mil</option>
+          <option value="150000">Até R$ 150 mil</option>
+          <option value="200000">Até R$ 200 mil</option>
+          <option value="250000">Até R$ 250 mil</option>
+        </select>
+        <select id="sort" aria-label="Ordenar">
+          <option value="price-asc">Menor preço</option>
+          <option value="price-desc">Maior preço</option>
+          <option value="km-asc">Menor km</option>
+          <option value="year-desc">Mais novo</option>
+        </select>
+      </div>
+      <div class="count-row"><span id="count"></span><button class="link-btn" id="clear" hidden>Limpar filtros</button></div>
+      <div class="grid" id="grid"><p class="status">Carregando veículos…</p></div>
+
+      <section id="recent" class="recent" hidden>
+        <h2 class="section-title">Vistos recentemente</h2>
+        <div class="grid" id="recent-grid"></div>
+      </section>
+    </main>
+
+    <section id="sobre" class="about">
+      <div><strong>120 itens</strong><span>verificados em cada carro</span></div>
+      <div><strong>Garantia</strong><span>de 12 meses, procedência e quilometragem</span></div>
+      <div><strong>Financiamento</strong><span>com aprovação em minutos</span></div>
+      <div><strong>Troca</strong><span>avaliamos seu usado na hora</span></div>
+    </section>
+  </div>
+
+  <main id="page" class="wrap" hidden></main>
+
+  <div class="tray" id="tray" hidden>
+    <div class="tray-items" id="tray-items"></div>
+    <a class="btn small" id="tray-go" href="#/comparar">Comparar</a>
+  </div>
+
+  <footer>
+    Projeto de laboratório: dados fictícios, sem vínculo com a Volkswagen.
+    <a href="#/creditos">Créditos das fotos</a>
+  </footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Grafana Faro: observabilidade do navegador (ver faro.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/@grafana/faro-web-sdk@2.12.1/dist/bundle/faro-web-sdk.iife.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@grafana/faro-web-tracing@2.12.1/dist/bundle/faro-web-tracing.iife.js" crossorigin="anonymous"></script>
+  <script src="faro.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
