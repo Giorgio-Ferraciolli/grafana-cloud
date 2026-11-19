@@ -1,0 +1,251 @@
+// ============================================================
+// Alloy do laboratório: flask-lab-api, java-lab-api e postgres-lab
+//   logs     docker.sock          -> Loki
+//   traces   OTLP (apps)          -> Tempo  (inclui os spans das queries no banco)
+//   métricas OTLP (apps) + probes -> Prometheus (Mimir)
+//   métricas postgres_exporter    -> Prometheus (Mimir)
+//   db-o11y  queries/planos/schema do Postgres -> Loki (Database Observability)
+//   profiles SDK Pyroscope (apps) -> Pyroscope
+// ============================================================
+
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+// ---------- Destinos no Grafana Cloud ----------
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = sys.env("PROM_URL")
+    basic_auth {
+      username = sys.env("PROM_USER")
+      password = sys.env("PROM_TOKEN")
+    }
+  }
+  external_labels = { env = "wsl-lab" }
+}
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = sys.env("LOKI_URL")
+    basic_auth {
+      username = sys.env("LOKI_USER")
+      password = sys.env("LOKI_TOKEN")
+    }
+  }
+  external_labels = { env = "wsl-lab" }
+}
+
+otelcol.auth.basic "tempo" {
+  username = sys.env("TEMPO_USER")
+  password = sys.env("TEMPO_TOKEN")
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = sys.env("TEMPO_ENDPOINT")
+    auth     = otelcol.auth.basic.tempo.handler
+  }
+}
+
+pyroscope.write "grafana_cloud" {
+  endpoint {
+    url = sys.env("PYROSCOPE_URL")
+    basic_auth {
+      username = sys.env("PYROSCOPE_USER")
+      password = sys.env("PYROSCOPE_TOKEN")
+    }
+  }
+  external_labels = { env = "wsl-lab" }
+}
+
+// ---------- Profiles das aplicações (SDKs Pyroscope) ----------
+
+pyroscope.receive_http "apps" {
+  http {
+    listen_address = "0.0.0.0"
+    listen_port    = 4040
+  }
+  forward_to = [pyroscope.write.grafana_cloud.receiver]
+}
+
+// ---------- Logs dos containers ----------
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  // Só os containers do compose do laboratório (projeto "laboratorios")
+  filter {
+    name   = "label"
+    values = ["com.docker.compose.project=laboratorios"]
+  }
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // Só as APIs e o banco (pelo nome do serviço no compose; o k6 e o próprio Alloy ficam de fora)
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "flask-lab-api|java-lab-api|postgres-lab"
+    action        = "keep"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service_name"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.relabel.containers.output
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.process.containers.receiver]
+}
+
+loki.process "containers" {
+  // Extrai o nível de log (Spring: "INFO"/"WARN"; gunicorn/Flask: "[INFO]"/"WARNING";
+  // Postgres: "ERROR:"/"FATAL:"/"WARNING:")
+  stage.regex {
+    expression = "(?P<level>TRACE|DEBUG|INFO|WARN|WARNING|ERROR|CRITICAL|FATAL)"
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+// ---------- OTLP das aplicações (traces + métricas) ----------
+
+otelcol.receiver.otlp "apps" {
+  grpc { endpoint = "0.0.0.0:4317" }
+  http { endpoint = "0.0.0.0:4318" }
+
+  output {
+    traces  = [otelcol.processor.batch.apps.input]
+    metrics = [otelcol.processor.batch.apps.input]
+  }
+}
+
+otelcol.processor.batch "apps" {
+  output {
+    traces  = [otelcol.exporter.otlp.tempo.input]
+    metrics = [otelcol.exporter.prometheus.apps.input]
+  }
+}
+
+otelcol.exporter.prometheus "apps" {
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---------- Probes de saúde (uptime) ----------
+
+prometheus.exporter.blackbox "health" {
+  config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4 } } } }"
+
+  target {
+    name    = "flask-lab-api"
+    address = "http://flask-lab-api:5000/health"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "java-lab-api"
+    address = "http://java-lab-api:5050/health"
+    module  = "http_2xx"
+  }
+}
+
+prometheus.scrape "health" {
+  targets         = prometheus.exporter.blackbox.health.targets
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---------- PostgreSQL (serviço postgres-lab) ----------
+// Usuário somente leitura "db-o11y" (criado pelo initdb do postgres-lab).
+// POSTGRES_DSN vem do docker-compose.yml: postgresql://db-o11y:<MONITOR_DB_PASSWORD>@postgres-lab:5432/lab?sslmode=disable
+
+// Métricas do servidor: conexões, transações, cache hit, locks, tamanho, e por query
+// (stat_statements: chamadas, tempo, linhas de cada query normalizada).
+prometheus.exporter.postgres "lab" {
+  data_source_names = [sys.env("POSTGRES_DSN")]
+  // Esta lista SUBSTITUI a padrão: os 11 primeiros são os padrões do exporter.
+  enabled_collectors = [
+    "database", "locks", "replication", "replication_slot", "roles", "stat_bgwriter",
+    "stat_database", "stat_progress_vacuum", "stat_user_tables", "statio_user_tables", "wal",
+    "stat_checkpointer", "long_running_transactions", "stat_statements",
+  ]
+
+  stat_statements {
+    exclude_users = ["db-o11y"]
+    // Label "query" com o texto da query (1 por queryid: não aumenta as séries)
+    include_query = true
+    query_length  = 200
+  }
+}
+
+// Database Observability do Grafana Cloud: amostras de queries em execução, detalhes
+// por query, planos de execução (EXPLAIN) e schema das tabelas. Vai para o Loki.
+// Também reexporta as métricas do exporter acima, então só raspamos aqui.
+database_observability.postgres "lab" {
+  data_source_name  = sys.env("POSTGRES_DSN")
+  forward_to        = [loki.relabel.postgres.receiver]
+  targets           = prometheus.exporter.postgres.lab.targets
+  enable_collectors = ["query_details", "query_samples", "schema_details", "explain_plans"]
+}
+
+loki.relabel "postgres" {
+  forward_to = [loki.write.grafana_cloud.receiver]
+
+  rule {
+    target_label = "job"
+    replacement  = "integrations/db-o11y"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = "postgres-lab"
+  }
+}
+
+// job/instance no formato que o app Database Observability espera
+discovery.relabel "postgres" {
+  targets = database_observability.postgres.lab.targets
+
+  rule {
+    target_label = "job"
+    replacement  = "integrations/db-o11y"
+  }
+  rule {
+    source_labels = ["instance"]
+    target_label  = "dsn"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = "postgres-lab"
+  }
+}
+
+prometheus.scrape "postgres" {
+  targets         = discovery.relabel.postgres.output
+  scrape_interval = "30s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---------- Métricas do próprio Alloy ----------
+
+prometheus.exporter.self "alloy" { }
+
+prometheus.scrape "alloy" {
+  targets         = prometheus.exporter.self.alloy.targets
+  scrape_interval = "60s"
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
