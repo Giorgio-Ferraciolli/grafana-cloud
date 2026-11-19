@@ -1,0 +1,183 @@
+:root {
+  --fundo: #ffffff;
+  --superficie: #f6f6f6;
+  --borda: #e4e4e4;
+  --texto: #111111;
+  --suave: #737373;
+  --destaque: #2f5bea;
+  --erro: #b42318;
+  --raio: 6px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #0e0e0e;
+    --superficie: #181818;
+    --borda: #2a2a2a;
+    --texto: #f2f2f2;
+    --suave: #8f8f8f;
+    --destaque: #7c9bff;
+    --erro: #ff8a80;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 4rem 1.25rem;
+  background: var(--fundo);
+  color: var(--texto);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.topo, main {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 4rem;
+}
+
+h1 { margin: 0; font-size: 1.75rem; font-weight: 600; letter-spacing: -0.02em; }
+h2 { margin: 0 0 1.25rem; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--suave); }
+
+section + section { margin-top: 4rem; }
+
+/* Status da API */
+.status { margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--suave); }
+.ponto { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--borda); }
+.status.ok .ponto { background: var(--destaque); }
+.status.falha .ponto { background: var(--erro); }
+
+/* Formulário */
+.form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
+.campo { display: flex; flex-direction: column; gap: 0.375rem; flex: 1 1 12rem; }
+.campo-qtd { flex: 0 1 7rem; }
+.campo span { font-size: 0.85rem; color: var(--suave); }
+
+input, button { font: inherit; color: inherit; }
+
+input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus { border-color: var(--destaque); }
+input[aria-invalid="true"] { border-color: var(--erro); }
+
+button {
+  padding: 0.625rem 1.25rem;
+  background: transparent;
+  color: var(--texto);
+  border: 1.5px solid var(--texto);
+  border-radius: var(--raio);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s, background 0.18s, box-shadow 0.18s, transform 0.18s;
+}
+button:hover:not(:disabled) {
+  color: var(--destaque);
+  border-color: var(--destaque);
+  background: var(--superficie);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destaque) 22%, transparent);
+  transform: translateY(-1px);
+}
+button:active { transform: translateY(0); box-shadow: 0 0 0 1px var(--destaque); }
+button:focus-visible { outline: 2px solid var(--destaque); outline-offset: 3px; }
+button:disabled { opacity: 0.4; cursor: default; transform: none; box-shadow: none; }
+
+/* Botão de excluir: mesma reação do principal, em vermelho */
+.botao-perigo {
+  color: var(--erro);
+  border-color: color-mix(in srgb, var(--erro) 55%, transparent);
+}
+.botao-perigo:hover:not(:disabled) {
+  color: var(--erro);
+  border-color: var(--erro);
+  background: color-mix(in srgb, var(--erro) 10%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--erro) 22%, transparent);
+}
+.botao-perigo:active { box-shadow: 0 0 0 1px var(--erro); }
+.botao-perigo:focus-visible { outline-color: var(--erro); }
+.botao-perigo.confirmar,
+.botao-perigo.confirmar:hover:not(:disabled) {
+  color: var(--fundo);
+  background: var(--erro);
+  border-color: var(--erro);
+}
+
+/* Botão neutro (Cancelar): contorno cinza, reage em branco */
+.botao-secundario { color: var(--suave); border-color: var(--borda); }
+.botao-secundario:hover:not(:disabled) {
+  color: var(--texto);
+  border-color: var(--texto);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--texto) 12%, transparent);
+}
+
+.form-botoes { display: flex; gap: 0.5rem; }
+
+/* Barra da lista: busca + Editar + Excluir */
+.ferramentas { display: flex; flex-wrap: wrap; gap: 0.5rem; flex: 1 1 22rem; justify-content: flex-end; }
+.ferramentas .busca { flex: 1 1 12rem; max-width: 16rem; }
+.ferramentas button { padding-inline: 1rem; }
+
+/* Seleção de linhas */
+input[type="checkbox"] { width: 1rem; height: 1rem; margin: 0; accent-color: var(--destaque); cursor: pointer; }
+.tabela .sel { width: 2.25rem; }
+.tabela tbody tr { cursor: pointer; }
+.tabela tbody tr.selecionado { background: color-mix(in srgb, var(--destaque) 10%, transparent); }
+.tabela tbody tr.selecionado:hover { background: color-mix(in srgb, var(--destaque) 16%, transparent); }
+
+.dica { margin: 1rem 0 0; font-size: 0.8rem; color: var(--suave); }
+
+/* Campos e linhas também reagem ao cursor, no mesmo tom */
+input:hover:not(:focus) { border-color: var(--suave); }
+.tabela tbody tr { transition: background 0.15s; }
+.tabela tbody tr:hover { background: var(--superficie); }
+
+.mensagem { min-height: 1.5rem; margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--suave); }
+.mensagem.erro { color: var(--erro); }
+
+/* Lista */
+.lista-topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+.lista-topo h2 { margin: 0; }
+.contagem { margin-left: 0.25rem; color: var(--texto); }
+.busca { flex: 0 1 15rem; }
+
+.tabela { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tabela th { padding: 0 0 0.625rem; text-align: left; font-size: 0.8rem; font-weight: 500; color: var(--suave); border-bottom: 1px solid var(--borda); }
+.tabela td { padding: 0.875rem 0; border-bottom: 1px solid var(--borda); }
+.tabela th:nth-child(2), .tabela td:nth-child(2) { width: 4rem; color: var(--suave); }
+.tabela .num { text-align: right; }
+.tabela tr.novo td { animation: realce 1.6s ease-out; }
+
+@keyframes realce { from { background: var(--superficie); } to { background: transparent; } }
+
+.vazio { margin: 1.5rem 0 0; color: var(--suave); font-size: 0.9rem; }
+
+@media (max-width: 30rem) {
+  body { padding-block: 2.5rem; }
+  .topo { margin-bottom: 2.5rem; }
+  section + section { margin-top: 3rem; }
+  .campo-qtd { flex: 1 1 6rem; }
+  .form-botoes { flex: 1 1 100%; }
+  .form-botoes button { flex: 1; }
+  .ferramentas .busca { flex: 1 1 100%; max-width: none; }
+  .ferramentas button { flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

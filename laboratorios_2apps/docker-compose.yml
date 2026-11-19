@@ -1,0 +1,213 @@
+# ============================================================
+# Laboratório: tudo num compose só.
+#   postgres-lab   PostgreSQL 18, banco compartilhado pelas APIs      localhost:5432
+#   alloy          Grafana Alloy -> Grafana Cloud                     http://localhost:12345
+#   flask-lab-api  API + tela em Python/Flask (gunicorn)              http://localhost:5000
+#   java-lab-api   API + tela em Java 21/Spring Boot                  http://localhost:5050
+#   k6             teste de carga, sob demanda (perfil load-test)
+#
+#   docker compose up -d --build --wait     sobe tudo, na ordem, e espera ficar healthy
+#   docker compose down                     derruba (os dados do banco ficam no volume)
+#   docker compose run --rm k6              teste de carga (DURATION=30s docker compose run --rm k6)
+#
+# Senhas e tokens: .env (veja .env.example). Os containers se falam pela rede do compose,
+# pelo nome do serviço (postgres-lab:5432, alloy:4317...); as portas abaixo são só para o host.
+# ============================================================
+
+name: laboratorios
+
+# --- Pedaços repetidos nas duas APIs ---
+
+x-api-db: &api-db
+  # PostgreSQL (postgres-lab), o mesmo banco para as duas APIs
+  DB_HOST: postgres-lab
+  DB_PORT: "5432"
+  DB_NAME: lab
+  DB_USER: lab_app
+  DB_PASSWORD: ${APP_DB_PASSWORD:?defina APP_DB_PASSWORD no .env (veja .env.example)}
+
+x-api-otel: &api-otel
+  # OpenTelemetry -> Alloy
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=wsl-lab
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4317
+  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+  OTEL_METRIC_EXPORT_INTERVAL: "30000"
+  # Logs vão pelo stdout do container (o Alloy lê via docker.sock), para não duplicar no Loki
+  OTEL_LOGS_EXPORTER: none
+  # Pyroscope (profiling) -> Alloy
+  PYROSCOPE_SERVER_ADDRESS: http://alloy:4040
+
+x-api-depends: &api-depends
+  # Sem o banco a API sobe, mas fica com /health 503 (unhealthy) até ele aparecer
+  postgres-lab:
+    condition: service_healthy
+  # Sem o Alloy a API funciona; só perde telemetria
+  alloy:
+    condition: service_started
+
+services:
+
+  # ---------- Banco ----------
+  postgres-lab:
+    image: postgres:18.6
+    container_name: postgres-lab
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: lab
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env (veja .env.example)}
+      # Usadas só pelo initdb/01-init.sh, na criação do volume
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?defina APP_DB_PASSWORD no .env (veja .env.example)}
+      MONITOR_DB_PASSWORD: ${MONITOR_DB_PASSWORD:?defina MONITOR_DB_PASSWORD no .env (veja .env.example)}
+    # Publicada para o Windows enxergar em localhost:5432 (DBeaver, pgAdmin...)
+    ports:
+      - "5432:5432"
+    command:
+      - postgres
+      # Estatísticas por query (usadas pelo Alloy: métricas e Database Observability)
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - compute_query_id=on
+      - -c
+      - track_activity_query_size=4096
+      - -c
+      - track_io_timing=on
+      # Logs (stdout -> Alloy -> Loki): queries lentas e esperas por lock
+      - -c
+      - log_min_duration_statement=200ms
+      - -c
+      - log_lock_waits=on
+      - -c
+      - "log_line_prefix=%m [%p] %q%u@%d app=%a "
+    volumes:
+      # Postgres 18+: o volume vai em /var/lib/postgresql (não mais em .../data)
+      - pg-data:/var/lib/postgresql
+      - ./postgres-lab/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "lab"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ---------- Observabilidade ----------
+  alloy:
+    image: grafana/alloy:v1.21.3
+    container_name: alloy
+    restart: unless-stopped
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      PROM_URL: ${PROM_URL:?defina PROM_URL no .env (veja .env.example)}
+      PROM_USER: ${PROM_USER:?defina PROM_USER no .env}
+      PROM_TOKEN: ${PROM_TOKEN:?defina PROM_TOKEN no .env}
+      LOKI_URL: ${LOKI_URL:?defina LOKI_URL no .env}
+      LOKI_USER: ${LOKI_USER:?defina LOKI_USER no .env}
+      LOKI_TOKEN: ${LOKI_TOKEN:?defina LOKI_TOKEN no .env}
+      TEMPO_ENDPOINT: ${TEMPO_ENDPOINT:?defina TEMPO_ENDPOINT no .env}
+      TEMPO_USER: ${TEMPO_USER:?defina TEMPO_USER no .env}
+      TEMPO_TOKEN: ${TEMPO_TOKEN:?defina TEMPO_TOKEN no .env}
+      PYROSCOPE_URL: ${PYROSCOPE_URL:?defina PYROSCOPE_URL no .env}
+      PYROSCOPE_USER: ${PYROSCOPE_USER:?defina PYROSCOPE_USER no .env}
+      PYROSCOPE_TOKEN: ${PYROSCOPE_TOKEN:?defina PYROSCOPE_TOKEN no .env}
+      # Usuário somente leitura "db-o11y", criado pelo initdb do postgres-lab
+      POSTGRES_DSN: postgresql://db-o11y:${MONITOR_DB_PASSWORD:?defina MONITOR_DB_PASSWORD no .env}@postgres-lab:5432/lab?sslmode=disable
+    ports:
+      - "12345:12345"   # UI do Alloy: http://localhost:12345
+      - "4317:4317"     # OTLP gRPC (para apps rodando fora do compose)
+      - "4318:4318"     # OTLP HTTP
+      - "4040:4040"     # Pyroscope
+    volumes:
+      - ./observability/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      # Descoberta de containers e leitura dos logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      # Se o banco cair depois, o Alloy continua no ar e manda pg_up 0
+      postgres-lab:
+        condition: service_healthy
+
+  # ---------- APIs ----------
+  flask-lab-api:
+    build: ./flask-lab-api
+    container_name: flask-lab-api
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      <<: [*api-db, *api-otel]
+      OTEL_SERVICE_NAME: flask-lab-api
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      # Para desligar o profiling, remova PYROSCOPE_SERVER_ADDRESS (vem do x-api-otel)
+      PYROSCOPE_APPLICATION_NAME: flask-lab-api
+    depends_on: *api-depends
+    healthcheck:
+      # /health faz um SELECT no banco: se o Postgres cair, o container
+      # fica unhealthy em vez de parecer saudável.
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  java-lab-api:
+    # O build compila e roda os testes (a primeira vez demora)
+    build: ./java-lab-api
+    container_name: java-lab-api
+    restart: unless-stopped
+    ports:
+      - "5050:5050"
+    environment:
+      <<: [*api-db, *api-otel]
+      # O agente OTel instrumenta o JDBC sozinho: cada query vira um span filho do span HTTP,
+      # e o pool HikariCP gera métricas db.client.connections.*
+      # Para desligar o profiling, tire o -javaagent:/app/pyroscope.jar.
+      JAVA_TOOL_OPTIONS: "-javaagent:/app/opentelemetry-javaagent.jar -javaagent:/app/pyroscope.jar"
+      OTEL_SERVICE_NAME: java-lab-api
+      PYROSCOPE_APPLICATION_NAME: java-lab-api
+      PYROSCOPE_FORMAT: jfr
+      # itimer: o evento "cpu" (perf_events) não funciona dentro do Docker sem privilégio
+      PYROSCOPE_PROFILER_EVENT: itimer
+      PYROSCOPE_PROFILER_ALLOC: 512k
+      PYROSCOPE_PROFILER_LOCK: 10ms
+      PYROSCOPE_LABELS: deployment.environment=wsl-lab
+      PYROSCOPE_LOG_LEVEL: info
+    depends_on: *api-depends
+    healthcheck:
+      # wget do busybox sai com erro em qualquer status != 2xx (ex.: 503)
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5050/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+
+  # ---------- Teste de carga (sob demanda) ----------
+  # docker compose run --rm k6                       10 minutos
+  # DURATION=30s docker compose run --rm k6
+  # Grava itens "item-teste-N" no banco compartilhado.
+  k6:
+    image: grafana/k6:2.3.0
+    profiles: [load-test]
+    command: ["run", "--quiet", "/scripts/script.js"]
+    environment:
+      DURATION: ${DURATION:-10m}
+      FLASK_URL: http://flask-lab-api:5000
+      JAVA_URL: http://java-lab-api:5050
+    volumes:
+      - ./load-test:/scripts:ro
+    depends_on:
+      flask-lab-api:
+        condition: service_healthy
+      java-lab-api:
+        condition: service_healthy
+
+volumes:
+  pg-data:
+  alloy-data:

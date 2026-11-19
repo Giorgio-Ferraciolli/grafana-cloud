@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Items</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="pagina">
+    <header class="cabecalho">
+      <h1>Items</h1>
+      <p class="status" id="status" role="status" aria-live="polite">
+        <span class="status-bolinha" aria-hidden="true"></span>
+        <span id="status-texto">verificando…</span>
+      </p>
+    </header>
+
+    <section class="secao" aria-labelledby="titulo-novo">
+      <h2 class="rotulo" id="titulo-novo">Novo item</h2>
+      <form id="form-novo" class="form-novo" novalidate>
+        <div class="campo campo-nome">
+          <label for="novo-nome">Nome</label>
+          <input id="novo-nome" name="nome" type="text" placeholder="teclado" autocomplete="off" required>
+        </div>
+        <div class="campo campo-qtd">
+          <label for="novo-qtd">Quantidade</label>
+          <input id="novo-qtd" name="quantidade" type="number" min="0" step="1" value="1" inputmode="numeric">
+        </div>
+        <button type="submit" class="botao botao-primario" id="botao-adicionar">Adicionar</button>
+      </form>
+      <p class="mensagem" id="msg-novo" role="alert" hidden></p>
+    </section>
+
+    <section class="secao" aria-labelledby="titulo-lista">
+      <h2 class="rotulo" id="titulo-lista">Lista <span class="contagem" id="contagem"></span></h2>
+
+      <div class="barra">
+        <div class="campo campo-busca">
+          <label for="busca" class="visualmente-oculto">Buscar por nome ou #id</label>
+          <input id="busca" type="search" placeholder="Buscar por nome ou #id" autocomplete="off">
+        </div>
+        <div class="acoes">
+          <button type="button" class="botao" id="botao-editar" disabled>Editar</button>
+          <button type="button" class="botao botao-perigo" id="botao-excluir" disabled>Excluir</button>
+        </div>
+      </div>
+
+      <p class="mensagem" id="msg-lista" role="alert" hidden></p>
+
+      <div class="tabela-moldura">
+        <table class="tabela" id="tabela">
+          <thead>
+            <tr>
+              <th class="col-check" scope="col">
+                <input type="checkbox" id="check-todos" aria-label="Selecionar todos os itens visíveis">
+              </th>
+              <th class="col-id" scope="col">ID</th>
+              <th scope="col">Nome</th>
+              <th class="col-qtd" scope="col">Qtd.</th>
+            </tr>
+          </thead>
+          <tbody id="corpo-tabela">
+            <tr class="linha-info"><td colspan="4">Carregando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="rodape">Clique nas linhas para selecionar.</p>
+    </section>
+  </main>
+
+  <dialog id="dialogo-excluir" class="dialogo" aria-labelledby="dialogo-titulo">
+    <form method="dialog">
+      <h2 id="dialogo-titulo">Excluir itens</h2>
+      <p id="dialogo-texto"></p>
+      <div class="dialogo-acoes">
+        <button value="cancelar" class="botao" autofocus>Cancelar</button>
+        <button value="confirmar" class="botao botao-perigo">Excluir</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>

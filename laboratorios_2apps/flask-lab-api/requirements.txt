@@ -1,0 +1,13 @@
+Flask==3.1.0
+gunicorn==23.0.0
+# PostgreSQL (driver + pool de conexões)
+psycopg[binary]==3.3.6
+psycopg-pool==3.3.3
+# OpenTelemetry (auto-instrumentação, sem mudar o app.py)
+opentelemetry-distro==0.66b2
+opentelemetry-exporter-otlp-proto-grpc==1.45.2
+opentelemetry-instrumentation-flask==0.66b2
+# Spans de cada query no banco (db.system=postgresql), filhos do span HTTP
+opentelemetry-instrumentation-psycopg==0.66b2
+# Profiling contínuo -> Pyroscope (ligado no gunicorn.conf.py)
+pyroscope-io==1.4.0

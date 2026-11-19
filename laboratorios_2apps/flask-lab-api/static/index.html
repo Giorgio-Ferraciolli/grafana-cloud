@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Items — Flask Lab</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topo">
+    <h1>Items</h1>
+    <p class="status" id="status" aria-live="polite">
+      <span class="ponto" aria-hidden="true"></span>
+      <span id="status-texto">verificando…</span>
+    </p>
+  </header>
+
+  <main>
+    <section aria-labelledby="titulo-form">
+      <h2 id="titulo-form">Novo item</h2>
+      <form id="form-item" class="form" novalidate>
+        <label class="campo">
+          <span>Nome</span>
+          <input name="nome" type="text" autocomplete="off" required placeholder="teclado">
+        </label>
+        <label class="campo campo-qtd">
+          <span>Quantidade</span>
+          <input name="quantidade" type="number" min="0" step="1" value="1" inputmode="numeric">
+        </label>
+        <div class="form-botoes">
+          <button type="submit" id="botao-salvar">Adicionar</button>
+          <button type="button" id="botao-cancelar" class="botao-secundario" hidden>Cancelar</button>
+        </div>
+      </form>
+      <p class="mensagem" id="mensagem" role="status"></p>
+    </section>
+
+    <section aria-labelledby="titulo-lista">
+      <div class="lista-topo">
+        <h2 id="titulo-lista">Lista <span class="contagem" id="contagem"></span></h2>
+        <div class="ferramentas">
+          <input id="busca" class="busca" type="search" placeholder="Buscar por nome ou #id"
+                 aria-label="Buscar por nome ou #id">
+          <button type="button" id="botao-editar" disabled>Editar</button>
+          <button type="button" id="botao-excluir" class="botao-perigo" disabled>Excluir</button>
+        </div>
+      </div>
+
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th scope="col" class="sel">
+              <input type="checkbox" id="marcar-todos" aria-label="Selecionar todos">
+            </th>
+            <th scope="col">ID</th><th scope="col">Nome</th><th scope="col" class="num">Qtd.</th>
+          </tr>
+        </thead>
+        <tbody id="linhas"></tbody>
+      </table>
+      <p class="vazio" id="vazio" hidden>Nenhum item encontrado.</p>
+      <p class="dica">Clique nas linhas para selecionar.</p>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
